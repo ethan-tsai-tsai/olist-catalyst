@@ -17,3 +17,9 @@ GEMINI.md
 # Data
 data/
 output/
+
+# IDE settings
+.idea/
+
+# Environment variables
+.env
