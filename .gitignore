@@ -13,6 +13,7 @@ wheels/
 
 # LLM doc
 GEMINI.md
+.playwright-mcp/
 
 # Data
 data/
