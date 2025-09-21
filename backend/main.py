@@ -352,7 +352,6 @@ def get_seller_metric(seller_id: str, metric_name: str):
             """
             cur.execute(query, (seller_id,))
             results = cur.fetchall()
-            print(f"Seller-specific geo results for {seller_id}: {results}")
 
             if not results:
                 # If the seller has no customers, fall back to overall customer distribution
@@ -369,8 +368,7 @@ def get_seller_metric(seller_id: str, metric_name: str):
                 """
                 cur.execute(fallback_query)
                 results = cur.fetchall()
-                values = {f"br-{row[0].lower()}": row[1] for row in results}
-
+            values = {row[0].lower(): row[1] for row in results}
             return {"values": values}
 
         else:

@@ -44,7 +44,7 @@ const CustomerGeoMap: React.FC<{ sellerId: string | null }> = ({ sellerId }) => 
   return (
     <div style={{ width: '100%', height: 384 }}>
       <VectorMap
-        map={brMill}
+        map={brMill as any}
         backgroundColor="transparent"
         regionStyle={{
           initial: {
@@ -54,6 +54,7 @@ const CustomerGeoMap: React.FC<{ sellerId: string | null }> = ({ sellerId }) => 
         series={{
           regions: [
             {
+              attribute: 'fill',
               values: mapData?.values || {},
               scale: ['#c8e6c9', '#1b5e20'],
               normalizeFunction: 'polynomial',
@@ -61,7 +62,9 @@ const CustomerGeoMap: React.FC<{ sellerId: string | null }> = ({ sellerId }) => 
           ],
         }}
         onRegionTipShow={(event, el, code) => {
-            el.html(el.html() + ': ' + (mapData?.values[code] || 0) + ' customers');
+          const regionName = (brMill as any).content.paths[code]?.name || code;
+          const customerCount = mapData?.values[code] || 0;
+          (el as any).html(`${regionName}: ${customerCount} customers`);
         }}
       />
     </div>
