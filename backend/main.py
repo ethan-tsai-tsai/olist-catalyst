@@ -179,7 +179,7 @@ def get_overview_metric(metric_name: str):
             cur.execute(query)
             results = cur.fetchall()
 
-            values = {row[0]: row[1] for row in results}
+            values = {row[0].lower(): row[1] for row in results}
 
             return {"values": values}
         
@@ -207,37 +207,178 @@ def get_overview_metric(metric_name: str):
             conn.close()
 
 
-@app.get("/api/sellers/{seller_id}/{metric_name}")
-def get_seller_metric(seller_id: str, metric_name: str):
-    """Fetch a specific metric for a given seller. MOCK IMPLEMENTATION."""
-    # This is a mock implementation. In a real scenario, you would query
-    # the 'seller_profiles' table based on seller_id and metric_name.
-    # For now, we return pre-existing sample data to connect the frontend.
-    
-    print(f"Fetching mock data for seller '{seller_id}', metric '{metric_name}'")
-
-    # Reuse data from platform_overview for demonstration purposes
-    if metric_name == "rfm_customer_segments":
-        # RFM chart is a scatter plot, reuse bubble chart data structure
-        metric_to_fetch = "product_potential_matrix"
-    elif metric_name == "association_rules_graph":
-        # Association rules is a graph, reuse sankey data structure
-        metric_to_fetch = "customer_journey_sankey"
-    else:
-        # Default to a known metric if no specific mapping
-        metric_to_fetch = "sales_trend"
-
+@app.get("/api/sellers")
+def get_sellers():
     conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT data_payload FROM platform_overview WHERE metric_name = %s", (metric_to_fetch,))
-        result = cur.fetchone()
-        cur.close()
-        if result:
-            return result[0]
+        query = "SELECT DISTINCT seller_id FROM order_items;"
+        cur.execute(query)
+        results = cur.fetchall()
+        
+        sellers = [row[0] for row in results]
+        
+        return sellers
+    except Exception as e:
+        print(f"An error occurred while fetching sellers: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+    finally:
+        if conn:
+            conn.close()
+
+
+@app.get("/api/ecommerce-metrics")
+def get_ecommerce_metrics():
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # Total Customers
+        cur.execute("SELECT COUNT(DISTINCT customer_unique_id) FROM customers;")
+        total_customers = cur.fetchone()[0]
+
+        # Total Orders
+        cur.execute("SELECT COUNT(order_id) FROM orders;")
+        total_orders = cur.fetchone()[0]
+
+        # Placeholder for growth percentages
+        customer_growth = 11.01
+        order_growth = -9.05
+
+        return {
+            "customers": {
+                "total": total_customers,
+                "growth": customer_growth
+            },
+            "orders": {
+                "total": total_orders,
+                "growth": order_growth
+            }
+        }
+
+    except Exception as e:
+        print(f"An error occurred while fetching ecommerce metrics: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+    finally:
+        if conn:
+            conn.close()
+
+
+@app.get("/api/sellers/{seller_id}/{metric_name}")
+def get_seller_metric(seller_id: str, metric_name: str):
+    """Fetch a specific metric for a given seller."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        if metric_name == "ecommerce-metrics":
+            # Total Customers for this seller
+            query_customers = """
+            SELECT COUNT(DISTINCT o.customer_id) 
+            FROM orders o
+            JOIN order_items oi ON o.order_id = oi.order_id
+            WHERE oi.seller_id = %s;
+            """
+            cur.execute(query_customers, (seller_id,))
+            total_customers = cur.fetchone()[0]
+
+            # Total Orders for this seller
+            query_orders = "SELECT COUNT(order_id) FROM order_items WHERE seller_id = %s;"
+            cur.execute(query_orders, (seller_id,))
+            total_orders = cur.fetchone()[0]
+
+            # Placeholder for growth percentages
+            customer_growth = 5.5 # Placeholder
+            order_growth = -2.1 # Placeholder
+
+            return {
+                "customers": {
+                    "total": total_customers,
+                    "growth": customer_growth
+                },
+                "orders": {
+                    "total": total_orders,
+                    "growth": order_growth
+                }
+            }
+
+        elif metric_name == "sales_trend":
+            query = """
+            SELECT
+                TO_CHAR(o.order_purchase_timestamp, 'YYYY-MM') as month,
+                SUM(oi.price) as total_sales
+            FROM
+                orders o
+            JOIN
+                order_items oi ON o.order_id = oi.order_id
+            WHERE
+                o.order_status != 'canceled' AND oi.seller_id = %s
+            GROUP BY
+                month
+            ORDER BY
+                month;
+            """
+            cur.execute(query, (seller_id,))
+            results = cur.fetchall()
+
+            months = [row[0] for row in results]
+            sales_data = [float(row[1]) for row in results]
+
+            series = [{"name": "Sales", "data": sales_data}]
+            options = {"xaxis": {"categories": months}}
+
+            return {"series": series, "options": options}
+
+        elif metric_name == "customer_geo_map":
+            query = """
+            SELECT
+                c.customer_state,
+                COUNT(DISTINCT c.customer_unique_id) as customer_count
+            FROM
+                customers c
+            JOIN
+                orders o ON c.customer_id = o.customer_id
+            JOIN
+                order_items oi ON o.order_id = oi.order_id
+            WHERE
+                oi.seller_id = %s
+            GROUP BY
+                c.customer_state
+            ORDER BY
+                customer_count DESC;
+            """
+            cur.execute(query, (seller_id,))
+            results = cur.fetchall()
+            print(f"Seller-specific geo results for {seller_id}: {results}")
+
+            if not results:
+                # If the seller has no customers, fall back to overall customer distribution
+                fallback_query = """
+                SELECT
+                    c.customer_state,
+                    COUNT(DISTINCT c.customer_unique_id) as customer_count
+                FROM
+                    customers c
+                GROUP BY
+                    c.customer_state
+                ORDER BY
+                    customer_count DESC;
+                """
+                cur.execute(fallback_query)
+                results = cur.fetchall()
+                values = {f"br-{row[0].lower()}": row[1] for row in results}
+
+            return {"values": values}
+
         else:
-            raise HTTPException(status_code=404, detail=f"Mock data for metric '{metric_name}' not found")
+            raise HTTPException(status_code=404, detail=f"Metric '{metric_name}' for seller '{seller_id}' not found")
+
+    except Exception as e:
+        print(f"An error occurred while fetching seller metric: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
     finally:
         if conn:
             conn.close()

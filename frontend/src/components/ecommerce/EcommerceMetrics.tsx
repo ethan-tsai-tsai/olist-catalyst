@@ -1,9 +1,42 @@
 "use client";
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Badge from "../ui/badge/Badge";
 import { ArrowDownIcon, ArrowUpIcon, BoxIconLine, GroupIcon } from "@/icons";
 
-export const EcommerceMetrics = () => {
+interface MetricsData {
+  customers: { total: number; growth: number };
+  orders: { total: number; growth: number };
+}
+
+interface EcommerceMetricsProps {
+  sellerId: string | null;
+}
+
+export default function EcommerceMetrics({ sellerId }: EcommerceMetricsProps) {
+  const [data, setData] = useState<MetricsData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!sellerId) return;
+      setLoading(true);
+      try {
+        const response = await fetch(`http://localhost:8000/api/sellers/${sellerId}/ecommerce-metrics`);
+        const result: MetricsData = await response.json();
+        setData(result);
+      } catch (error) {
+        console.error("Failed to fetch ecommerce metrics:", error);
+      }
+      setLoading(false);
+    };
+
+    fetchData();
+  }, [sellerId]);
+
+  if (loading) {
+    return <div>Loading metrics...</div>;
+  }
+
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6">
       {/* <!-- Metric Item Start --> */}
@@ -18,12 +51,12 @@ export const EcommerceMetrics = () => {
               Customers
             </span>
             <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
-              3,782
+              {data?.customers.total.toLocaleString()}
             </h4>
           </div>
-          <Badge color="success">
-            <ArrowUpIcon />
-            11.01%
+          <Badge color={data && data.customers.growth > 0 ? "success" : "error"}>
+            {data && data.customers.growth > 0 ? <ArrowUpIcon /> : <ArrowDownIcon />}
+            {data?.customers.growth}%
           </Badge>
         </div>
       </div>
@@ -40,13 +73,13 @@ export const EcommerceMetrics = () => {
               Orders
             </span>
             <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
-              5,359
+              {data?.orders.total.toLocaleString()}
             </h4>
           </div>
 
-          <Badge color="error">
-            <ArrowDownIcon className="text-error-500" />
-            9.05%
+          <Badge color={data && data.orders.growth > 0 ? "success" : "error"}>
+            {data && data.orders.growth > 0 ? <ArrowUpIcon /> : <ArrowDownIcon />}
+            {data?.orders.growth}%
           </Badge>
         </div>
       </div>

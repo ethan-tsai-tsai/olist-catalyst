@@ -12,15 +12,17 @@ interface ChartData {
   };
 }
 
-const SalesTrendChart: React.FC = () => {
+const SalesTrendChart: React.FC<{ sellerId: string | null }> = ({ sellerId }) => {
   const [chartData, setChartData] = useState<ChartData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!sellerId) return;
+      setLoading(true);
       try {
-        const response = await fetch('http://localhost:8000/api/overview/sales_trend');
+        const response = await fetch(`http://localhost:8000/api/sellers/${sellerId}/sales_trend`);
         if (!response.ok) {
           throw new Error('Network response was not ok');
         }
@@ -34,7 +36,7 @@ const SalesTrendChart: React.FC = () => {
     };
 
     fetchData();
-  }, []);
+  }, [sellerId]);
 
   const options: ApexOptions = {
     chart: {
