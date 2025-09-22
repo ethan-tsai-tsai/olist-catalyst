@@ -23,9 +23,14 @@ export default function TopProductsTable() {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const res = await fetch('/api/platform/top-products');
-        const products = await res.json();
-        setData(products);
+        const res = await fetch('/api/v2/products?sort_by=sales_count&order=DESC&limit=5');
+        const result = await res.json();
+        if (result && result.data) {
+          setData(result.data);
+        } else {
+          setData([]);
+          console.error("API response is missing 'data' property", result);
+        }
       } catch (error) {
         console.error('Failed to fetch top products:', error);
       }

@@ -4,7 +4,13 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from .api_queries import get_top_sellers_by_revenue, get_top_sellers_by_volume, get_top_products, get_sales_by_region, get_order_status_distribution, get_payment_method_distribution, get_revenue_trend, get_platform_kpis
+from .api_queries import (
+    get_sellers, get_sellers_count,
+    get_products, get_products_count,
+    get_orders_log, get_orders_count,
+    get_sales_by_region, get_order_status_distribution, 
+    get_payment_method_distribution, get_revenue_trend, get_platform_kpis
+)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -38,84 +44,166 @@ def get_db_connection():
 def read_root():
     return {"message": "Olist Seller Success Dashboard API is running."}
 
+# --- V2 API Endpoints --- 
 
-@app.get("/api/platform/top-sellers-by-revenue")
-def get_top_sellers_revenue_endpoint():
-    """API endpoint to get top sellers by revenue."""
+@app.get("/api/v2/sellers")
+def get_sellers_endpoint(sort_by: str = 'total_revenue', order: str = 'DESC', page: int = 1, limit: int = 10):
     conn = None
     try:
         conn = get_db_connection()
-        top_sellers = get_top_sellers_by_revenue(conn, limit=10)
         
-        # Format results into a list of dictionaries
-        results = [
-            {
-                "seller_id": row[0],
-                "total_revenue": row[1],
-                "seller_city": row[2],
-                "seller_state": row[3]
-            }
-            for row in top_sellers
-        ]
+        # --- Direct SQL implementation to bypass caching issue ---
+        if sort_by not in ['total_revenue', 'unique_order_count']:
+            sort_by = 'total_revenue'
+        if order.upper() not in ['ASC', 'DESC']:
+            order = 'DESC'
+        offset = (page - 1) * limit
+
+        query = f"""
+            WITH seller_metrics AS (
+                SELECT
+                    s.seller_id,
+                    s.seller_city,
+                    s.seller_state,
+                    COALESCE(SUM(oi.price), 0) AS total_revenue,
+                    COALESCE(COUNT(DISTINCT oi.order_id), 0) AS unique_order_count
+                FROM sellers s
+                LEFT JOIN order_items oi ON s.seller_id = oi.seller_id
+                GROUP BY s.seller_id, s.seller_city, s.seller_state
+            )
+            SELECT seller_id, seller_city, seller_state, total_revenue, unique_order_count
+            FROM seller_metrics
+            ORDER BY {sort_by} {order}
+            LIMIT %s OFFSET %s;
+        """
+        with conn.cursor() as cur:
+            cur.execute(query, (limit, offset))
+            sellers = cur.fetchall()
+            
+            cur.execute("SELECT COUNT(*) FROM sellers;")
+            total_count = cur.fetchone()[0]
+        # --- End Direct SQL ---
+
+        results = {
+            "data": [
+                {
+                    "seller_id": row[0],
+                    "seller_city": row[1],
+                    "seller_state": row[2],
+                    "total_revenue": row[3],
+                    "order_count": row[4]
+                }
+                for row in sellers
+            ],
+            "totalCount": total_count
+        }
         return results
     except Exception as e:
-        print(f"An error occurred while fetching top sellers by revenue: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn:
+            conn.close()
+
+@app.get("/api/v2/products")
+def get_products_endpoint(sort_by: str = 'sales_count', order: str = 'DESC', page: int = 1, limit: int = 10):
+    conn = None
+    try:
+        conn = get_db_connection()
+        # --- Direct SQL implementation ---
+        if sort_by not in ['sales_count', 'product_id', 'category']:
+            sort_by = 'sales_count'
+        if order.upper() not in ['ASC', 'DESC']:
+            order = 'DESC'
+        offset = (page - 1) * limit
+        query = f"""
+            SELECT
+                p.product_id,
+                COALESCE(t.product_category_name_english, p.product_category_name) as category,
+                COUNT(oi.product_id) AS sales_count
+            FROM order_items oi
+            JOIN products p ON oi.product_id = p.product_id
+            LEFT JOIN product_category_name_translation t ON p.product_category_name = t.product_category_name
+            GROUP BY p.product_id, category
+            ORDER BY {sort_by} {order}
+            LIMIT %s OFFSET %s;
+        """
+        with conn.cursor() as cur:
+            cur.execute(query, (limit, offset))
+            products = cur.fetchall()
+            cur.execute("SELECT COUNT(DISTINCT product_id) FROM order_items;")
+            total_count = cur.fetchone()[0]
+        # --- End Direct SQL ---
+        results = {
+            "data": [
+                {
+                    "product_id": row[0],
+                    "category": row[1],
+                    "sales_count": row[2]
+                }
+                for row in products
+            ],
+            "totalCount": total_count
+        }
+        return results
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn:
+            conn.close()
+
+@app.get("/api/v2/orders")
+def get_orders_log_endpoint(sort_by: str = 'order_purchase_timestamp', order: str = 'DESC', page: int = 1, limit: int = 10):
+    conn = None
+    try:
+        conn = get_db_connection()
+        # --- Direct SQL implementation ---
+        if sort_by not in ['order_purchase_timestamp', 'order_id', 'customer_unique_id', 'order_status', 'total_value']:
+            sort_by = 'order_purchase_timestamp'
+        if order.upper() not in ['ASC', 'DESC']:
+            order = 'DESC'
+        offset = (page - 1) * limit
+        query = f"""
+            SELECT 
+                o.order_id, 
+                c.customer_unique_id, 
+                o.order_status, 
+                o.order_purchase_timestamp,
+                SUM(op.payment_value) as total_value
+            FROM orders o
+            JOIN customers c ON o.customer_id = c.customer_id
+            JOIN order_payments op ON o.order_id = op.order_id
+            GROUP BY o.order_id, c.customer_unique_id
+            ORDER BY {sort_by} {order}
+            LIMIT %s OFFSET %s;
+        """
+        with conn.cursor() as cur:
+            cur.execute(query, (limit, offset))
+            orders = cur.fetchall()
+            cur.execute("SELECT COUNT(*) FROM orders;")
+            total_count = cur.fetchone()[0]
+        # --- End Direct SQL ---
+        results = {
+            "data": [
+                {
+                    "order_id": row[0],
+                    "customer_unique_id": row[1],
+                    "order_status": row[2],
+                    "order_purchase_timestamp": row[3],
+                    "total_value": row[4]
+                }
+                for row in orders
+            ],
+            "totalCount": total_count
+        }
+        return results
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
     finally:
         if conn:
             conn.close()
 
 
-@app.get("/api/platform/top-sellers-by-volume")
-def get_top_sellers_volume_endpoint():
-    """API endpoint to get top sellers by order volume."""
-    conn = None
-    try:
-        conn = get_db_connection()
-        top_sellers = get_top_sellers_by_volume(conn, limit=10)
-        
-        # Format results into a list of dictionaries
-        results = [
-            {
-                "seller_id": row[0],
-                "order_count": row[1],
-                "seller_city": row[2],
-                "seller_state": row[3]
-            }
-            for row in top_sellers
-        ]
-        return results
-    except Exception as e:
-        print(f"An error occurred while fetching top sellers by volume: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
-    finally:
-        if conn:
-            conn.close()
-
-
-@app.get("/api/platform/top-products")
-def get_top_products_endpoint():
-    """API endpoint to get top 5 best-selling products."""
-    conn = None
-    try:
-        conn = get_db_connection()
-        top_products = get_top_products(conn, limit=5)
-        
-        results = [
-            {
-                "product_id": row[0],
-                "category": row[1],
-                "sales_count": row[2]
-            }
-            for row in top_products
-        ]
-        return results
-    except Exception as e:
-        print(f"An error occurred while fetching top products: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
-    finally:
-        if conn:
-            conn.close()
+# --- Legacy Endpoints (to be phased out) ---
 
 
 @app.get("/api/platform/sales-by-region")
@@ -127,7 +215,7 @@ def get_sales_by_region_endpoint():
         sales_by_region = get_sales_by_region(conn)
         
         # Format for the map component { "STATE_CODE": value, ... }
-        results = {row[0]: row[1] for row in sales_by_region}
+        results = {str(row[0]).upper(): row[1] for row in sales_by_region}
         
         return results
     except Exception as e:

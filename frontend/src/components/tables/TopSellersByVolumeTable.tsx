@@ -25,9 +25,14 @@ export default function TopSellersByVolumeTable() {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const res = await fetch('/api/platform/top-sellers-by-volume');
-        const sellers = await res.json();
-        setData(sellers);
+        const res = await fetch('/api/v2/sellers?sort_by=order_count&order=DESC&limit=10');
+        const result = await res.json();
+        if (result && result.data) {
+          setData(result.data); // Correctly access the data array
+        } else {
+          setData([]);
+          console.error("API response is missing 'data' property", result);
+        }
       } catch (error) {
         console.error('Failed to fetch top sellers by volume:', error);
       }

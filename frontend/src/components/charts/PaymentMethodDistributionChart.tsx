@@ -39,9 +39,10 @@ const PaymentMethodDistributionChart: React.FC = () => {
 
   const options: ApexOptions = {
     chart: {
+      fontFamily: "Satoshi, sans-serif",
       type: 'donut',
     },
-    colors: ["#10B981", "#375E8A", "#FBBF24", "#F87171"],
+    colors: ["#3C50E0", "#6577F3", "#80CAEE", "#FBBF24"],
     labels: chartData.labels,
     legend: {
       show: true,
@@ -52,6 +53,17 @@ const PaymentMethodDistributionChart: React.FC = () => {
         donut: {
           size: '65%',
           background: 'transparent',
+          labels: {
+            show: true,
+            total: {
+              show: true,
+              label: 'Total',
+              formatter: function (w) {
+                const total = w.globals.seriesTotals.reduce((a, b) => a + b, 0);
+                return total.toLocaleString();
+              }
+            }
+          }
         },
       },
     },
@@ -65,9 +77,6 @@ const PaymentMethodDistributionChart: React.FC = () => {
           chart: {
             width: 200,
           },
-          legend: {
-            position: 'bottom',
-          },
         },
       },
     ],
@@ -77,7 +86,7 @@ const PaymentMethodDistributionChart: React.FC = () => {
   if (error) return <div className="flex items-center justify-center h-60">Error: {error}</div>;
 
   return (
-    <div className="col-span-12 rounded-sm border border-stroke bg-white px-5 pt-7.5 pb-5 shadow-default dark:border-strokedark dark:bg-boxdark sm:px-7.5 xl:col-span-4">
+    <div className="col-span-12 rounded-sm border border-stroke bg-white px-5 pt-7.5 pb-5 shadow-default dark:border-strokedark dark:bg-boxdark sm:px-7.5 lg:col-span-6 xl:col-span-4">
       <div className="mb-3 justify-between gap-4 sm:flex">
         <div>
           <h5 className="text-xl font-semibold text-black dark:text-white">Payment Methods</h5>
@@ -85,7 +94,7 @@ const PaymentMethodDistributionChart: React.FC = () => {
       </div>
       <div className="mb-2">
         <div id="chartFour" className="mx-auto flex justify-center">
-          <ReactApexChart options={options} series={chartData.series} type="donut" />
+          <ReactApexChart options={options} series={chartData.series} type="donut" height={350} />
         </div>
       </div>
     </div>

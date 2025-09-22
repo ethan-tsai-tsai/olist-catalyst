@@ -22,13 +22,11 @@ const SalesRegionMap: React.FC = () => {
         }
         const data: { [key: string]: number } = await response.json();
 
-        // Fix: Convert keys to the 'BR-XX' format required by the map's series
         const formattedData: { [key: string]: number } = {};
         for (const key in data) {
-          formattedData[`BR-${key.toUpperCase()}`] = data[key];
+          formattedData[key.toLowerCase()] = data[key];
         }
 
-        // The map component expects the data to be in a `values` object.
         setMapData({ values: formattedData });
       } catch (error) {
         console.error("Failed to load map data:", error);
@@ -45,12 +43,13 @@ const SalesRegionMap: React.FC = () => {
   if (error) return <div className="flex items-center justify-center h-96">Error: {error}</div>;
 
   return (
-    <div className="col-span-12 rounded-sm border border-stroke bg-white py-6 px-7.5 shadow-default dark:border-strokedark dark:bg-boxdark xl:col-span-7">
+    <div className="col-span-12 rounded-sm border border-stroke bg-white py-6 px-7.5 shadow-default dark:border-strokedark dark:bg-boxdark lg:col-span-12">
         <h4 className="mb-2 text-xl font-semibold text-black dark:text-white">
             Sales by Region
         </h4>
         <div style={{ width: '100%', height: 384 }}>
         <VectorMap
+            key={mapData ? 'data-loaded' : 'loading'}
             map={brMill as any}
             backgroundColor="transparent"
             regionStyle={{
@@ -69,10 +68,8 @@ const SalesRegionMap: React.FC = () => {
             ],
             }}
             onRegionTipShow={(event, el, code) => {
-                // Handle inconsistent codes: event gives 'sp', but series needs 'BR-SP'
-                const dataKey = `BR-${code.toUpperCase()}`;
-                const regionName = (brMill as any).content.paths[dataKey]?.name || code;
-                const revenue = mapData?.values[dataKey] || 0;
+                const regionName = (brMill as any).content.paths[code]?.name || code;
+                const revenue = mapData?.values[code.toLowerCase()] || 0;
                 const formattedRevenue = revenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                 (el as any).html(`${regionName}: ${formattedRevenue}`);
             }}

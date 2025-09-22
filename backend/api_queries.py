@@ -1,6 +1,62 @@
 
 import logging
 
+def get_sellers(conn, sort_by='total_revenue', order='DESC', limit=10, page=1):
+    """
+    Queries the database for a paginated list of sellers with their performance metrics,
+    supporting dynamic sorting.
+    """
+    if sort_by not in ['total_revenue', 'unique_order_count', 'seller_id', 'seller_city', 'seller_state']:
+        sort_by = 'total_revenue'
+    if order.upper() not in ['ASC', 'DESC']:
+        order = 'DESC'
+
+    offset = (page - 1) * limit
+
+    query = f"""
+        WITH seller_metrics AS (
+            SELECT
+                s.seller_id,
+                s.seller_city,
+                s.seller_state,
+                COALESCE(SUM(oi.price), 0) AS total_revenue,
+                COALESCE(COUNT(DISTINCT oi.order_id), 0) AS unique_order_count
+            FROM sellers s
+            LEFT JOIN order_items oi ON s.seller_id = oi.seller_id
+            GROUP BY s.seller_id, s.seller_city, s.seller_state
+        )
+        SELECT
+            seller_id,
+            seller_city,
+            seller_state,
+            total_revenue,
+            unique_order_count
+        FROM seller_metrics
+        ORDER BY {sort_by} {order}
+        LIMIT %s
+        OFFSET %s;
+    """
+    try:
+        with conn.cursor() as cur:
+            cur.execute(query, (limit, offset))
+            results = cur.fetchall()
+        return results
+    except Exception as e:
+        logging.error(f"Error fetching sellers: {e}")
+        return []
+
+def get_sellers_count(conn):
+    """Returns the total number of sellers."""
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM sellers;")
+            count = cur.fetchone()[0]
+        return count
+    except Exception as e:
+        logging.error(f"Error fetching sellers count: {e}")
+        return 0
+
+
 def get_top_sellers_by_revenue(conn, limit=10):
     """
     Queries the database to get the top N sellers by total revenue.
@@ -68,6 +124,97 @@ def get_top_sellers_by_volume(conn, limit=10):
     except Exception as e:
         logging.error(f"Error fetching top sellers by volume: {e}")
         return []
+
+def get_products(conn, sort_by='sales_count', order='DESC', limit=10, page=1):
+    """
+    Queries the database for a paginated list of products, supporting dynamic sorting.
+    """
+    if sort_by not in ['sales_count']:
+        sort_by = 'sales_count'
+    if order.upper() not in ['ASC', 'DESC']:
+        order = 'DESC'
+    
+    offset = (page - 1) * limit
+
+    query = f"""
+        SELECT
+            p.product_id,
+            COALESCE(t.product_category_name_english, p.product_category_name) as product_category,
+            COUNT(oi.product_id) AS sales_count
+        FROM order_items oi
+        JOIN products p ON oi.product_id = p.product_id
+        LEFT JOIN product_category_name_translation t ON p.product_category_name = t.product_category_name
+        GROUP BY p.product_id, product_category
+        ORDER BY {sort_by} {order}
+        LIMIT %s
+        OFFSET %s;
+    """
+    try:
+        with conn.cursor() as cur:
+            cur.execute(query, (limit, offset))
+            results = cur.fetchall()
+        return results
+    except Exception as e:
+        logging.error(f"Error fetching products: {e}")
+        return []
+
+def get_products_count(conn):
+    """Returns the total number of products with sales."""
+    try:
+        with conn.cursor() as cur:
+            # This counts products that have at least one sale
+            cur.execute("SELECT COUNT(DISTINCT product_id) FROM order_items;")
+            count = cur.fetchone()[0]
+        return count
+    except Exception as e:
+        logging.error(f"Error fetching products count: {e}")
+        return 0
+
+def get_orders_log(conn, sort_by='order_purchase_timestamp', order='DESC', limit=10, page=1):
+    """
+    Queries the database for a paginated log of recent orders, with sorting.
+    """
+    if sort_by not in ['order_purchase_timestamp', 'order_id', 'customer_unique_id', 'order_status', 'total_value']:
+        sort_by = 'order_purchase_timestamp'
+    if order.upper() not in ['ASC', 'DESC']:
+        order = 'DESC'
+    
+    offset = (page - 1) * limit
+
+    query = f"""
+        SELECT 
+            o.order_id, 
+            c.customer_unique_id, 
+            o.order_status, 
+            o.order_purchase_timestamp,
+            SUM(op.payment_value) as total_value
+        FROM orders o
+        JOIN customers c ON o.customer_id = c.customer_id
+        JOIN order_payments op ON o.order_id = op.order_id
+        GROUP BY o.order_id, c.customer_unique_id
+        ORDER BY {sort_by} {order}
+        LIMIT %s
+        OFFSET %s;
+    """
+    try:
+        with conn.cursor() as cur:
+            cur.execute(query, (limit, offset))
+            results = cur.fetchall()
+        return results
+    except Exception as e:
+        logging.error(f"Error fetching orders log: {e}")
+        return []
+
+def get_orders_count(conn):
+    """Returns the total number of orders."""
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM orders;")
+            count = cur.fetchone()[0]
+        return count
+    except Exception as e:
+        logging.error(f"Error fetching orders count: {e}")
+        return 0
 
 def get_top_products(conn, limit=5):
     """

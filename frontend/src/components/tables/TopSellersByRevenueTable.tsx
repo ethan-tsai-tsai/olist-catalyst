@@ -25,18 +25,14 @@ export default function TopSellersByRevenueTable() {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const res = await fetch('/api/platform/top-sellers-by-revenue');
-
-        // --- Enhanced Debugging ---
-        console.log("Response Headers:", Object.fromEntries(res.headers.entries()));
-        const responseText = await res.text();
-        console.log("Raw Response Text:", responseText);
-        // --- End Enhanced Debugging ---
-
-        // Now, try to parse the text we logged
-        const sellers = JSON.parse(responseText);
-        setData(sellers);
-
+        const res = await fetch('/api/v2/sellers?sort_by=total_revenue&order=DESC&limit=10');
+        const result = await res.json();
+        if (result && result.data) {
+          setData(result.data);
+        } else {
+          setData([]);
+          console.error("API response is missing 'data' property", result);
+        }
       } catch (error) {
         console.error('Failed to fetch or parse top sellers by revenue:', error);
       }
