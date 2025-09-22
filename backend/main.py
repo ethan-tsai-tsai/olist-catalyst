@@ -4,16 +4,15 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
+from .api_queries import get_top_sellers_by_revenue, get_top_sellers_by_volume, get_top_products, get_sales_by_region, get_order_status_distribution, get_payment_method_distribution, get_revenue_trend, get_platform_kpis
+
 # Load environment variables from .env file
 load_dotenv()
 
 app = FastAPI()
 
 # Configure CORS
-origins = [
-    "http://localhost:3000",  # Allow Next.js dev server
-    "http://localhost",
-]
+origins = ["*"] # DEV ONLY: Allow all origins for debugging CORS issues
 
 app.add_middleware(
     CORSMiddleware,
@@ -38,6 +37,186 @@ def get_db_connection():
 @app.get("/")
 def read_root():
     return {"message": "Olist Seller Success Dashboard API is running."}
+
+
+@app.get("/api/platform/top-sellers-by-revenue")
+def get_top_sellers_revenue_endpoint():
+    """API endpoint to get top sellers by revenue."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        top_sellers = get_top_sellers_by_revenue(conn, limit=10)
+        
+        # Format results into a list of dictionaries
+        results = [
+            {
+                "seller_id": row[0],
+                "total_revenue": row[1],
+                "seller_city": row[2],
+                "seller_state": row[3]
+            }
+            for row in top_sellers
+        ]
+        return results
+    except Exception as e:
+        print(f"An error occurred while fetching top sellers by revenue: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+    finally:
+        if conn:
+            conn.close()
+
+
+@app.get("/api/platform/top-sellers-by-volume")
+def get_top_sellers_volume_endpoint():
+    """API endpoint to get top sellers by order volume."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        top_sellers = get_top_sellers_by_volume(conn, limit=10)
+        
+        # Format results into a list of dictionaries
+        results = [
+            {
+                "seller_id": row[0],
+                "order_count": row[1],
+                "seller_city": row[2],
+                "seller_state": row[3]
+            }
+            for row in top_sellers
+        ]
+        return results
+    except Exception as e:
+        print(f"An error occurred while fetching top sellers by volume: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+    finally:
+        if conn:
+            conn.close()
+
+
+@app.get("/api/platform/top-products")
+def get_top_products_endpoint():
+    """API endpoint to get top 5 best-selling products."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        top_products = get_top_products(conn, limit=5)
+        
+        results = [
+            {
+                "product_id": row[0],
+                "category": row[1],
+                "sales_count": row[2]
+            }
+            for row in top_products
+        ]
+        return results
+    except Exception as e:
+        print(f"An error occurred while fetching top products: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+    finally:
+        if conn:
+            conn.close()
+
+
+@app.get("/api/platform/sales-by-region")
+def get_sales_by_region_endpoint():
+    """API endpoint to get total sales revenue by region."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        sales_by_region = get_sales_by_region(conn)
+        
+        # Format for the map component { "STATE_CODE": value, ... }
+        results = {row[0]: row[1] for row in sales_by_region}
+        
+        return results
+    except Exception as e:
+        print(f"An error occurred while fetching sales by region: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+    finally:
+        if conn:
+            conn.close()
+
+
+@app.get("/api/platform/order-status-distribution")
+def get_order_status_distribution_endpoint():
+    """API endpoint to get the distribution of order statuses."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        distribution = get_order_status_distribution(conn)
+        results = {row[0]: row[1] for row in distribution}
+        return results
+    except Exception as e:
+        print(f"An error occurred while fetching order status distribution: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+    finally:
+        if conn:
+            conn.close()
+
+
+@app.get("/api/platform/payment-method-distribution")
+def get_payment_method_distribution_endpoint():
+    """API endpoint to get the distribution of payment methods."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        distribution = get_payment_method_distribution(conn)
+        results = {row[0]: row[1] for row in distribution}
+        return results
+    except Exception as e:
+        print(f"An error occurred while fetching payment method distribution: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+    finally:
+        if conn:
+            conn.close()
+
+
+@app.get("/api/platform/revenue-trend")
+def get_revenue_trend_endpoint():
+    """API endpoint to get the monthly revenue trend."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        trend_data = get_revenue_trend(conn)
+        
+        categories = [row[0] for row in trend_data]
+        series_data = [float(row[1]) for row in trend_data]
+        
+        results = {
+            "series": [{"name": "Revenue", "data": series_data}],
+            "categories": categories
+        }
+        return results
+    except Exception as e:
+        print(f"An error occurred while fetching revenue trend: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+    finally:
+        if conn:
+            conn.close()
+
+
+@app.get("/api/platform/kpis")
+def get_kpis_endpoint():
+    """API endpoint to get key platform-wide performance indicators."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        kpis = get_platform_kpis(conn)
+        
+        # Add placeholder growth percentages
+        kpis["revenue_growth"] = 12.5
+        kpis["orders_growth"] = 8.2
+        kpis["customers_growth"] = 15.1
+        kpis["sellers_growth"] = 2.3
+        
+        return kpis
+    except Exception as e:
+        print(f"An error occurred while fetching platform KPIs: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+    finally:
+        if conn:
+            conn.close()
 
 
 @app.get("/api/overview/{metric_name}")

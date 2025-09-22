@@ -1,52 +1,78 @@
 'use client';
 
 import Breadcrumb from "@/components/common/PageBreadCrumb";
-import { useSeller } from "@/context/SellerContext";
 import dynamic from "next/dynamic";
 
-const SalesTrendChart = dynamic(
-  () => import("@/components/charts/SalesTrendChart"),
+// Dynamically import all components
+const PlatformKPIs = dynamic(
+  () => import("@/components/ecommerce/PlatformKPIs"),
   { ssr: false },
 );
-
-const CustomerGeoMap = dynamic(() => import("@/components/maps/CustomerGeoMap"), {
-  ssr: false,
-});
-
-const EcommerceMetrics = dynamic(
-  () => import("@/components/ecommerce/EcommerceMetrics"),
+const RevenueTrendChart = dynamic(
+  () => import("@/components/charts/RevenueTrendChart"),
+  { ssr: false },
+);
+const PaymentMethodDistributionChart = dynamic(
+  () => import("@/components/charts/PaymentMethodDistributionChart"),
+  { ssr: false },
+);
+const SalesRegionMap = dynamic(
+  () => import("@/components/maps/SalesRegionMap"),
+  { ssr: false },
+);
+const TopSellersByRevenueTable = dynamic(
+  () => import("@/components/tables/TopSellersByRevenueTable"),
+  { ssr: false },
+);
+const TopSellersByVolumeTable = dynamic(
+  () => import("@/components/tables/TopSellersByVolumeTable"),
+  { ssr: false },
+);
+const TopProductsTable = dynamic(
+  () => import("@/components/tables/TopProductsTable"),
+  { ssr: false },
+);
+const OrderStatusDistributionChart = dynamic(
+  () => import("@/components/charts/OrderStatusDistributionChart"),
   { ssr: false },
 );
 
 const DashboardOverviewPage = () => {
-  const { selectedSeller } = useSeller();
-
   return (
     <>
-      <Breadcrumb pageName="Dashboard Overview" />
+      <Breadcrumb pageName="Platform BI Dashboard" />
 
-      <div className="grid grid-cols-12 gap-4 md:gap-6 2xl:gap-7.5">
-        <div className="col-span-12">
-          <EcommerceMetrics sellerId={selectedSeller} />
+      <div className="flex flex-col gap-4 md:gap-6">
+        {/* Row 1: KPIs */}
+        <PlatformKPIs />
+
+        {/* Row 2: Revenue Chart and Payment Methods */}
+        <div className="grid grid-cols-12 gap-4 md:gap-6">
+            <RevenueTrendChart />
+            <PaymentMethodDistributionChart />
         </div>
 
-        <div className="col-span-12 xl:col-span-8">
-          <div className="rounded-sm border border-stroke bg-white px-5 pb-5 pt-7.5 shadow-default dark:border-strokedark dark:bg-boxdark">
-            <h4 className="mb-6 text-xl font-semibold text-black dark:text-white">
-              Overall Sales Trend
-            </h4>
-            <SalesTrendChart sellerId={selectedSeller} />
+        {/* Row 3: Map */}
+        <SalesRegionMap />
+
+        {/* Row 4: Top Seller Tables */}
+        <div className="grid grid-cols-12 gap-4 md:gap-6">
+          <div className="col-span-12 xl:col-span-6">
+            <TopSellersByRevenueTable />
+          </div>
+          <div className="col-span-12 xl:col-span-6">
+            <TopSellersByVolumeTable />
           </div>
         </div>
 
-        <div className="col-span-12 xl:col-span-4">
-          <div className="rounded-sm border border-stroke bg-white px-5 pb-5 pt-7.5 shadow-default dark:border-strokedark dark:bg-boxdark">
-            <h4 className="mb-6 text-xl font-semibold text-black dark:text-white">
-              Customer Geo Distribution
-            </h4>
-            <CustomerGeoMap sellerId={selectedSeller} />
-          </div>
+        {/* Row 5: Top Products and Order Status */}
+        <div className="grid grid-cols-12 gap-4 md:gap-6">
+            <div className="col-span-12 xl:col-span-7">
+                <TopProductsTable />
+            </div>
+            <OrderStatusDistributionChart />
         </div>
+
       </div>
     </>
   );
