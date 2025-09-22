@@ -9,6 +9,14 @@ const outfit = Outfit({
   subsets: ['latin'],
 });
 
+export const metadata: Metadata = {
+  title: "Olist Catalyst - Operations Forecast Dashboard",
+  description: "An advanced analytics dashboard for Olist platform operators.",
+  icons: {
+    icon: "/icon.svg",
+  },
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{

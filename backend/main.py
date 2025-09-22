@@ -4,18 +4,20 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from .api_queries import (
-    get_sellers, get_sellers_count,
-    get_products, get_products_count,
-    get_orders_log, get_orders_count,
-    get_sales_by_region, get_order_status_distribution, 
-    get_payment_method_distribution, get_revenue_trend, get_platform_kpis
-)
+import logging
+import pandas as pd
+from .predictive_analysis import run_churn_prediction_v2, run_sales_forecasting_v2
+from .api_queries import get_data_for_predictions
 
 # Load environment variables from .env file
 load_dotenv()
 
 app = FastAPI()
+
+# --- In-memory Cache for expensive analysis ---
+analysis_cache = {
+    "data": None
+}
 
 # Configure CORS
 origins = ["*"] # DEV ONLY: Allow all origins for debugging CORS issues
@@ -32,7 +34,7 @@ app.add_middleware(
 DB_URL = f"postgres://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}@{os.getenv('POSTGRES_HOST')}:5432/{os.getenv('POSTGRES_DATABASE')}"
 
 def get_db_connection():
-    """Establishes a connection to the database."""
+    """Establishes a connection to the database.""" 
     try:
         conn = psycopg2.connect(DB_URL)
         return conn
@@ -43,6 +45,54 @@ def get_db_connection():
 @app.get("/")
 def read_root():
     return {"message": "Olist Seller Success Dashboard API is running."}
+
+
+@app.get("/api/platform/predictive-insights")
+def get_predictive_insights_endpoint(force_refresh: bool = False):
+    """API endpoint for all predictive insights."""
+    if not force_refresh and analysis_cache["data"]:
+        logging.info("Returning cached predictive insights.")
+        return analysis_cache["data"]
+
+    conn = None
+    try:
+        conn = get_db_connection()
+        all_data = get_data_for_predictions(conn)
+        if not all_data:
+            raise HTTPException(status_code=500, detail="Failed to fetch data for predictions.")
+
+        churn_results = run_churn_prediction_v2(all_data['orders'], all_data['payments'], all_data['customers'], all_data['processed_data'])
+        sales_forecasts = run_sales_forecasting_v2(all_data['processed_data'])
+
+        # Seller performance aggregation
+        churn_df = churn_results['predictions']
+        customer_seller_map = all_data['processed_data'][['customer_unique_id', 'seller_id']].drop_duplicates()
+        seller_churn_df = pd.merge(churn_df, customer_seller_map, on='customer_unique_id')
+        seller_agg = seller_churn_df.groupby('seller_id').agg(total_customers=('customer_unique_id', 'nunique')).reset_index()
+        high_risk_customers_by_seller = seller_churn_df[seller_churn_df['churn_probability'] > 0.5].groupby('seller_id').agg(high_risk_customers=('customer_unique_id', 'nunique'), affected_gmv=('Monetary', 'sum')).reset_index()
+        seller_performance = pd.merge(seller_agg, high_risk_customers_by_seller, on='seller_id', how='left').fillna(0)
+        seller_performance['seller_churn_rate'] = (seller_performance['high_risk_customers'] / seller_performance['total_customers']) * 100
+
+        # Combine all results
+        final_results = {
+            "churn_analysis": {
+                "predictions": churn_results["predictions"].to_dict('records'),
+                "feature_importance": churn_results["feature_importance"].to_dict('records')
+            },
+            "sales_forecast": {cat: df.to_dict('records') for cat, df in sales_forecasts.items()},
+            "seller_performance": seller_performance.to_dict('records')
+        }
+
+        analysis_cache["data"] = final_results
+        return final_results
+
+    except Exception as e:
+        logging.error(f"An error occurred while generating predictive insights: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+    finally:
+        if conn:
+            conn.close()
+
 
 # --- V2 API Endpoints --- 
 

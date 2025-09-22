@@ -33,6 +33,11 @@ const navItems: NavItem[] = [
     path: "/",
   },
   {
+    icon: <PieChartIcon />,
+    name: "Operations Forecast",
+    path: "/predictive-insights",
+  },
+  {
     icon: <TableIcon />,
     name: "Sellers",
     path: "/tables/sellers",
@@ -265,28 +270,21 @@ const AppSidebar: React.FC = () => {
       >
         <Link href="/">
           {isExpanded || isHovered || isMobileOpen ? (
-            <>
+            <div className="flex items-center gap-3">
               <Image
-                className="dark:hidden"
-                src="/images/logo/logo.svg"
-                alt="Logo"
-                width={150}
-                height={40}
-                style={{ height: 'auto' }}
+                src="/images/logo/olist-icon.svg"
+                alt="Olist Catalyst Icon"
+                width={32}
+                height={32}
               />
-              <Image
-                className="hidden dark:block"
-                src="/images/logo/logo-dark.svg"
-                alt="Logo"
-                width={150}
-                height={40}
-                style={{ height: 'auto' }}
-              />
-            </>
+              <span className="text-xl font-semibold text-black dark:text-white">
+                Olist <span className="text-brand-500">Catalyst</span>
+              </span>
+            </div>
           ) : (
             <Image
-              src="/images/logo/logo-icon.svg"
-              alt="Logo"
+              src="/images/logo/olist-icon.svg"
+              alt="Olist Catalyst Icon"
               width={32}
               height={32}
             />

@@ -351,3 +351,45 @@ def get_platform_kpis(conn):
     except Exception as e:
         logging.error(f"Error fetching platform KPIs: {e}")
         return {}
+
+
+# --- Functions for Predictive Analysis ---
+
+import pandas as pd
+
+def get_data_for_predictions(conn):
+    """
+    Fetches all necessary data from the database for predictive modeling
+    and returns a dictionary of pandas DataFrames.
+    """
+    # Corrected table names based on database schema query
+    table_names = {
+        "orders": "orders",
+        "payments": "order_payments",
+        "customers": "customers",
+        "items": "order_items",
+        "products": "products",
+        "translations": "product_category_name_translation"
+    }
+    
+    dataframes = {}
+    try:
+        for df_key, table_name in table_names.items():
+            logging.info(f"Fetching table: {table_name}...")
+            query = f'SELECT * FROM "{table_name}";'
+            dataframes[df_key] = pd.read_sql_query(query, conn)
+        
+        # Recreate processed_df by joining tables
+        logging.info("Joining tables to create processed_data...")
+        df = pd.merge(dataframes['orders'], dataframes['items'], on='order_id')
+        df = pd.merge(df, dataframes['products'], on='product_id')
+        df = pd.merge(df, dataframes['customers'], on='customer_id')
+        df = pd.merge(df, dataframes['translations'], on='product_category_name')
+        dataframes['processed_data'] = df
+        logging.info("Successfully created 'processed_data' DataFrame.")
+
+        return dataframes
+
+    except Exception as e:
+        logging.error(f"Error fetching data for predictions: {e}")
+        return None
