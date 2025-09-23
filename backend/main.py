@@ -209,6 +209,269 @@ def get_sellers_endpoint(sort_by: str = 'total_revenue', order: str = 'DESC', pa
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/v2/sellers/{seller_id}")
+def get_seller_details_endpoint(seller_id: str):
+    if not engine:
+        raise HTTPException(status_code=500, detail="Database connection not available.")
+
+    query = text("""
+        WITH seller_base AS (
+            SELECT
+                s.seller_id,
+                s.seller_city,
+                s.seller_state,
+                MIN(oi.shipping_limit_date) as first_sale_date
+            FROM sellers s
+            JOIN order_items oi ON s.seller_id = oi.seller_id
+            WHERE s.seller_id = :seller_id
+            GROUP BY s.seller_id, s.seller_city, s.seller_state
+        ),
+        seller_kpis AS (
+            SELECT
+                oi.seller_id,
+                SUM(oi.price) as total_revenue,
+                COUNT(DISTINCT oi.order_id) as total_orders,
+                COUNT(DISTINCT oi.product_id) as distinct_products_sold,
+                AVG(r.review_score) as average_review_score,
+                SUM(CASE WHEN o.order_delivered_customer_date <= o.order_estimated_delivery_date THEN 1 ELSE 0 END) as on_time_deliveries,
+                COUNT(o.order_id) as total_delivered_orders
+            FROM order_items oi
+            JOIN orders o ON oi.order_id = o.order_id
+            LEFT JOIN order_reviews r ON o.order_id = r.order_id
+            WHERE oi.seller_id = :seller_id AND o.order_status = 'delivered'
+            GROUP BY oi.seller_id
+        )
+        SELECT
+            b.seller_id,
+            b.seller_city,
+            b.seller_state,
+            b.first_sale_date,
+            k.total_revenue,
+            k.total_orders,
+            k.distinct_products_sold,
+            k.average_review_score,
+            (CAST(k.on_time_deliveries AS FLOAT) / k.total_delivered_orders) * 100 as on_time_delivery_rate
+        FROM seller_base b
+        LEFT JOIN seller_kpis k ON b.seller_id = k.seller_id;
+    """)
+
+    try:
+        with engine.connect() as connection:
+            result = connection.execute(query, {'seller_id': seller_id}).mappings().first()
+
+        if not result:
+            raise HTTPException(status_code=404, detail="Seller not found")
+
+        return result
+    except Exception as e:
+        logging.error(f"Error fetching seller details for {seller_id}: {e}")
+        if not isinstance(e, HTTPException):
+            raise HTTPException(status_code=500, detail=str(e))
+        raise e
+
+@app.get("/api/v2/sellers/{seller_id}/sales-trend")
+def get_seller_sales_trend_endpoint(seller_id: str):
+    if not engine:
+        raise HTTPException(status_code=500, detail="Database connection not available.")
+
+    query = text("""
+        SELECT
+            TO_CHAR(o.order_purchase_timestamp, 'YYYY-MM') as month,
+            SUM(oi.price) as monthly_revenue
+        FROM order_items oi
+        JOIN orders o ON oi.order_id = o.order_id
+        WHERE oi.seller_id = :seller_id
+        GROUP BY month
+        ORDER BY month;
+    """)
+
+    try:
+        with engine.connect() as connection:
+            result = connection.execute(query, {'seller_id': seller_id}).mappings().all()
+        
+        if not result:
+            # Return empty list if seller exists but has no sales
+            return []
+
+        return result
+    except Exception as e:
+        logging.error(f"Error fetching sales trend for seller {seller_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@app.get("/api/v2/sellers/{seller_id}/category-distribution")
+def get_seller_category_distribution_endpoint(seller_id: str):
+    if not engine:
+        raise HTTPException(status_code=500, detail="Database connection not available.")
+
+    query = text("""
+        SELECT
+            COALESCE(t.product_category_name_english, p.product_category_name) as category,
+            COUNT(oi.product_id) as count
+        FROM order_items oi
+        JOIN products p ON oi.product_id = p.product_id
+        LEFT JOIN product_category_name_translation t ON p.product_category_name = t.product_category_name
+        WHERE oi.seller_id = :seller_id
+        GROUP BY category
+        ORDER BY count DESC;
+    """)
+
+    try:
+        with engine.connect() as connection:
+            result = connection.execute(query, {'seller_id': seller_id}).mappings().all()
+        
+        if not result:
+            return []
+
+        return result
+    except Exception as e:
+        logging.error(f"Error fetching category distribution for seller {seller_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@app.get("/api/v2/sellers/{seller_id}/top-products")
+def get_seller_top_products_endpoint(seller_id: str, limit: int = 5):
+    if not engine:
+        raise HTTPException(status_code=500, detail="Database connection not available.")
+
+    query = text("""
+        SELECT
+            oi.product_id,
+            COALESCE(t.product_category_name_english, p.product_category_name) as category,
+            COUNT(oi.product_id) as sales_count
+        FROM order_items oi
+        JOIN products p ON oi.product_id = p.product_id
+        LEFT JOIN product_category_name_translation t ON p.product_category_name = t.product_category_name
+        WHERE oi.seller_id = :seller_id
+        GROUP BY oi.product_id, category
+        ORDER BY sales_count DESC
+        LIMIT :limit;
+    """)
+
+    try:
+        with engine.connect() as connection:
+            result = connection.execute(query, {'seller_id': seller_id, 'limit': limit}).mappings().all()
+        
+        if not result:
+            return []
+
+        return result
+    except Exception as e:
+        logging.error(f"Error fetching top products for seller {seller_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@app.get("/api/v2/sellers/{seller_id}/review-distribution")
+def get_seller_review_distribution_endpoint(seller_id: str):
+    if not engine:
+        raise HTTPException(status_code=500, detail="Database connection not available.")
+
+    query = text("""
+        SELECT
+            r.review_score, 
+            COUNT(r.review_score) as count
+        FROM order_reviews r
+        JOIN order_items oi ON r.order_id = oi.order_id
+        WHERE oi.seller_id = :seller_id
+        GROUP BY r.review_score
+        ORDER BY r.review_score;
+    """)
+
+    try:
+        with engine.connect() as connection:
+            result = connection.execute(query, {'seller_id': seller_id}).mappings().all()
+        
+        # Ensure all scores from 1 to 5 are present, even if count is 0
+        score_map = {item['review_score']: item['count'] for item in result}
+        full_distribution = [{"review_score": i, "count": score_map.get(i, 0)} for i in range(1, 6)]
+
+        return full_distribution
+    except Exception as e:
+        logging.error(f"Error fetching review distribution for seller {seller_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@app.get("/api/v2/sellers/{seller_id}/recent-orders")
+def get_seller_recent_orders_endpoint(seller_id: str, limit: int = 5):
+    if not engine:
+        raise HTTPException(status_code=500, detail="Database connection not available.")
+
+    query = text("""
+        SELECT 
+            o.order_id, 
+            o.order_status, 
+            o.order_purchase_timestamp,
+            SUM(op.payment_value) as total_value
+        FROM orders o
+        JOIN order_items oi ON o.order_id = oi.order_id
+        JOIN order_payments op ON o.order_id = op.order_id
+        WHERE oi.seller_id = :seller_id
+        GROUP BY o.order_id, o.order_status, o.order_purchase_timestamp
+        ORDER BY o.order_purchase_timestamp DESC
+        LIMIT :limit;
+    """)
+
+    try:
+        with engine.connect() as connection:
+            result = connection.execute(query, {'seller_id': seller_id, 'limit': limit}).mappings().all()
+        
+        if not result:
+            return []
+
+        return result
+    except Exception as e:
+        logging.error(f"Error fetching recent orders for seller {seller_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@app.get("/api/v2/sellers/{seller_id}/predictive-insights")
+def get_seller_predictive_insights_endpoint(seller_id: str):
+    if not engine:
+        raise HTTPException(status_code=500, detail="Database connection not available.")
+
+    # Note: This is a simplified version for a single seller. 
+    # A real-world scenario might involve pre-calculated, cached, or more complex lookups.
+    query = text("""
+        WITH customer_rfm AS (
+            SELECT
+                oi.seller_id,
+                c.customer_unique_id,
+                MAX(o.order_purchase_timestamp) as last_purchase_date,
+                COUNT(DISTINCT o.order_id) as frequency,
+                SUM(op.payment_value) as monetary
+            FROM orders o
+            JOIN customers c ON o.customer_id = c.customer_id
+            JOIN order_items oi ON o.order_id = oi.order_id
+            JOIN order_payments op ON o.order_id = op.order_id
+            WHERE oi.seller_id = :seller_id
+            GROUP BY oi.seller_id, c.customer_unique_id
+        ),
+        seller_agg AS (
+            SELECT
+                seller_id,
+                -- Simplified Recency: Days since the last purchase from ANY customer
+                EXTRACT(DAY FROM NOW() - MAX(last_purchase_date)) as recency,
+                -- Simplified Frequency: Average number of orders per customer
+                AVG(frequency) as average_frequency,
+                -- Simplified Monetary: Average monetary value per customer
+                AVG(monetary) as average_monetary_value,
+                -- Simplified Churn: % of customers who haven't purchased in 180 days
+                (SUM(CASE WHEN NOW() - last_purchase_date > INTERVAL '180 days' THEN 1 ELSE 0 END) * 100.0 / COUNT(customer_unique_id)) as churn_rate
+            FROM customer_rfm
+            GROUP BY seller_id
+        )
+        SELECT * FROM seller_agg;
+    """)
+
+    try:
+        with engine.connect() as connection:
+            result = connection.execute(query, {'seller_id': seller_id}).mappings().first()
+
+        if not result:
+            raise HTTPException(status_code=404, detail="No predictive data found for this seller.")
+
+        return result
+    except Exception as e:
+        logging.error(f"Error fetching predictive insights for seller {seller_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+
 @app.get("/api/sellers")
 def get_sellers_legacy_endpoint(sort_by: str = 'total_revenue', order: str = 'DESC', page: int = 1, limit: int = 10):
     """Legacy endpoint for fetching sellers. Aliases to /api/v2/sellers."""
@@ -223,7 +486,7 @@ def get_products_endpoint(sort_by: str = 'sales_count', order: str = 'DESC', pag
     order = order.upper() if order.upper() in ['ASC', 'DESC'] else 'DESC'
     query = text(f"""
         SELECT
-            p.product_id, COALESCE(t.product_category_name_english, p.product_category_name) as category, COUNT(oi.product_id) AS sales_count
+            p.product_id, MAX(oi.seller_id) as seller_id, COALESCE(t.product_category_name_english, p.product_category_name) as category, COUNT(oi.product_id) AS sales_count
         FROM order_items oi JOIN products p ON oi.product_id = p.product_id
         LEFT JOIN product_category_name_translation t ON p.product_category_name = t.product_category_name
         GROUP BY p.product_id, category ORDER BY {sort_by} {order} LIMIT :limit OFFSET :offset;

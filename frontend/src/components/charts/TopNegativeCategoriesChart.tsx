@@ -23,6 +23,7 @@ const TopNegativeCategoriesChart: FC<TopNegativeCategoriesChartProps> = ({ serie
       bar: {
         horizontal: false,
         columnWidth: '55%',
+        borderRadius: 7,
       },
     },
     dataLabels: {

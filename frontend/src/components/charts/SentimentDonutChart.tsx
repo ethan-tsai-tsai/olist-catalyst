@@ -22,6 +22,28 @@ const SentimentDonutChart: FC<SentimentDonutChartProps> = ({ series, labels }) =
       horizontalAlign: 'center',
       show: true,
     },
+    plotOptions: {
+      pie: {
+        donut: {
+          size: '65%',
+          background: 'transparent',
+          labels: {
+            show: true,
+            total: {
+              show: true,
+              label: 'Total Reviews',
+              formatter: function (w) {
+                const total = w.globals.seriesTotals.reduce((a, b) => a + b, 0);
+                return total.toLocaleString();
+              }
+            }
+          }
+        },
+      },
+    },
+    dataLabels: {
+      enabled: false,
+    },
     responsive: [{
       breakpoint: 480,
       options: {

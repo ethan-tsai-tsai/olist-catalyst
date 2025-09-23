@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import {
   Table,
   TableBody,
@@ -11,6 +12,7 @@ import {
 
 interface ProductData {
   product_id: string;
+  seller_id: string;
   category: string;
   sales_count: number;
 }
@@ -51,6 +53,7 @@ export default function TopProductsTable() {
             <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
               <TableRow>
                 <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Product ID</TableCell>
+                <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Seller</TableCell>
                 <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Category</TableCell>
                 <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Sales Count</TableCell>
               </TableRow>
@@ -58,13 +61,20 @@ export default function TopProductsTable() {
             <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="py-5 text-center">Loading...</TableCell>
+                  <TableCell colSpan={4} className="py-5 text-center">Loading...</TableCell>
                 </TableRow>
               ) : (
                 data.map((product) => (
                   <TableRow key={product.product_id}>
                     <TableCell className="px-5 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
                       {product.product_id.substring(0, 15)}...
+                    </TableCell>
+                    <TableCell className="px-5 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                      <Link href={`/sellers/${product.seller_id}`}>
+                        <span className="text-blue-500 hover:underline">
+                          {product.seller_id.substring(0, 8)}...
+                        </span>
+                      </Link>
                     </TableCell>
                     <TableCell className="px-5 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
                       {product.category}

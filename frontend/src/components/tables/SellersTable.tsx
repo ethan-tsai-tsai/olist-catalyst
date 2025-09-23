@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import { ArrowDownIcon, ArrowUpIcon } from '@/icons';
 import Pagination from '../common/Pagination';
 
@@ -99,7 +100,11 @@ const SellersTable: React.FC = () => {
               {data.map((seller) => (
                 <tr key={seller.seller_id}>
                   <td className="border-b border-[#eee] py-5 px-4 pl-9 dark:border-strokedark xl:pl-11">
-                    <p className="text-sm font-mono text-black dark:text-white">{seller.seller_id}</p>
+                    <Link href={`/sellers/${seller.seller_id}`}>
+                      <p className="text-sm font-mono text-blue-500 hover:underline dark:text-blue-400">
+                        {seller.seller_id}
+                      </p>
+                    </Link>
                   </td>
                   <td className="border-b border-[#eee] py-5 px-4 dark:border-strokedark">
                     <p className="text-black dark:text-white">{seller.seller_city}, {seller.seller_state}</p>
