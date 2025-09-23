@@ -40,7 +40,7 @@ const navItems: NavItem[] = [
   },
   {
     icon: <ChatIcon />,
-    name: "Sentiment Analysis",
+    name: "Customer Feedback",
     path: "/sentiment-analysis",
   },
   {
