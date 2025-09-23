@@ -1,4 +1,5 @@
 import { FC } from 'react';
+import Link from 'next/link';
 
 interface Review {
   review_id: string;
@@ -65,7 +66,9 @@ const RecentReviewsTable: FC<RecentReviewsTableProps> = ({ reviews, title }) => 
                </span>
             </div>
             <div className="hidden items-center justify-center p-2.5 text-center sm:flex col-span-2">
-              <p className="text-black dark:text-white text-sm">{review.seller_id}</p>
+              <Link href={`/sellers/${review.seller_id}`}>
+                <p className="text-sm text-blue-500 hover:underline dark:text-blue-400">{review.seller_id.substring(0, 8)}...</p>
+              </Link>
             </div>
             <div className="hidden items-center justify-center p-2.5 text-center sm:flex col-span-2">
               <p className="text-black dark:text-white text-sm">{new Date(review.review_creation_date).toLocaleDateString()}</p>
