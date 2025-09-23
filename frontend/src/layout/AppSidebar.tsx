@@ -7,6 +7,7 @@ import { useSidebar } from "../context/SidebarContext";
 import {
   BoxCubeIcon,
   CalenderIcon,
+  ChatIcon, // Add ChatIcon import
   ChevronDownIcon,
   GridIcon,
   HorizontaLDots,
@@ -36,6 +37,11 @@ const navItems: NavItem[] = [
     icon: <PieChartIcon />,
     name: "Operations Forecast",
     path: "/predictive-insights",
+  },
+  {
+    icon: <ChatIcon />,
+    name: "Sentiment Analysis",
+    path: "/sentiment-analysis",
   },
   {
     icon: <TableIcon />,

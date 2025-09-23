@@ -18,8 +18,8 @@ const CustomerJourneySankey = dynamic(
   { ssr: false },
 );
 
-const SentimentByCategoryChart = dynamic(
-  () => import("@/components/charts/SentimentByCategoryChart"),
+const SentimentDistributionChart = dynamic(
+  () => import("@/components/charts/SentimentDistributionChart"),
   { ssr: false },
 );
 
@@ -53,13 +53,13 @@ const DashboardOverviewPage = () => {
           </div>
         </div>
 
-        {/* <!-- Sentiment by Category --> */}
+        {/* <!-- Sentiment Distribution --> */}
         <div className="col-span-12 md:col-span-6 xl:col-span-4">
           <div className="rounded-sm border border-stroke bg-white px-5 pb-5 pt-7.5 shadow-default dark:border-strokedark dark:bg-boxdark">
             <h4 className="mb-6 text-xl font-semibold text-black dark:text-white">
-              Sentiment by Category
+              Sentiment Distribution
             </h4>
-            <SentimentByCategoryChart />
+            <SentimentDistributionChart />
           </div>
         </div>
 

@@ -3,14 +3,23 @@ import psycopg2
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-
 import logging
 import pandas as pd
-from .predictive_analysis import run_churn_prediction_v2, run_sales_forecasting_v2
-from .api_queries import get_data_for_predictions
+from pathlib import Path
+from .predictive_analysis import run_churn_prediction_v2, run_sales_forecasting_v2, run_sentiment_analysis
+from .api_queries import (
+    get_sales_by_region,
+    get_order_status_distribution,
+    get_payment_method_distribution,
+    get_revenue_trend,
+    get_platform_kpis,
+    get_data_for_predictions
+)
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env file explicitly
+# This makes it robust against different CWDs when running with uvicorn vs python script
+dotenv_path = Path(__file__).parent.parent / '.env'
+load_dotenv(dotenv_path=dotenv_path)
 
 app = FastAPI()
 
@@ -88,6 +97,86 @@ def get_predictive_insights_endpoint(force_refresh: bool = False):
 
     except Exception as e:
         logging.error(f"An error occurred while generating predictive insights: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+    finally:
+        if conn:
+            conn.close()
+
+
+@app.get("/api/sentiment-analysis")
+def get_sentiment_analysis_endpoint(page: int = 1, limit: int = 10):
+    """API endpoint for sentiment analysis of recent reviews."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        offset = (page - 1) * limit
+
+        # Get total count of reviews with comments first
+        count_query = """SELECT COUNT(*) FROM order_reviews WHERE review_comment_message IS NOT NULL AND TRIM(review_comment_message) <> '';"""
+        with conn.cursor() as cur:
+            cur.execute(count_query)
+            total_count = cur.fetchone()[0]
+
+        # Fetch paginated reviews that have a comment message
+        query = """
+            SELECT 
+                review_id,
+                order_id,
+                review_score,
+                review_comment_title,
+                review_comment_message,
+                review_creation_date
+            FROM 
+                order_reviews
+            WHERE 
+                review_comment_message IS NOT NULL 
+                AND TRIM(review_comment_message) <> ''
+            ORDER BY
+                review_creation_date DESC
+            LIMIT %s OFFSET %s;
+        """
+        reviews_df = pd.read_sql_query(query, conn, params=(limit, offset))
+        
+        # --- Run analysis only on the fetched page --- #
+        if not reviews_df.empty:
+            analyzed_reviews_df = run_sentiment_analysis(reviews_df)
+        else:
+            analyzed_reviews_df = reviews_df
+
+        # --- Calculate overall distribution (can be cached or sampled for performance) --- #
+        # For now, we will mock this as it's expensive to calculate on all data for each page
+        # A better approach would be a separate endpoint or a background job to calculate this.
+        distribution_query = """
+            SELECT 
+                CASE 
+                    WHEN review_score >= 4 THEN 'positive'
+                    WHEN review_score <= 2 THEN 'negative'
+                    ELSE 'neutral'
+                END as sentiment_label, 
+                COUNT(*)
+            FROM order_reviews 
+            WHERE review_comment_message IS NOT NULL AND TRIM(review_comment_message) <> ''
+            GROUP BY sentiment_label;
+        """
+        dist_df = pd.read_sql_query(distribution_query, conn)
+        distribution = dict(zip(dist_df.sentiment_label, dist_df['count']))
+        for key in ['positive', 'neutral', 'negative']:
+            if key not in distribution:
+                distribution[key] = 0
+
+        # Prepare results
+        final_results = {
+            "distribution": distribution,
+            "reviews": {
+                "data": analyzed_reviews_df.to_dict('records'),
+                "totalCount": total_count
+            }
+        }
+
+        return final_results
+
+    except Exception as e:
+        logging.error(f"An error occurred while performing sentiment analysis: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
     finally:
         if conn:

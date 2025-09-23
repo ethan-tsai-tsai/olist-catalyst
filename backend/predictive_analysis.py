@@ -14,6 +14,10 @@ Patch Notes (v5):
 import logging
 import pandas as pd
 
+# Transformer/ML imports
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import torch
+
 # ML & Forecasting Imports
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
@@ -109,3 +113,66 @@ def run_sales_forecasting_v2(processed_df: pd.DataFrame):
         logging.info(f"Advanced forecast for '{category}' generated.")
 
     return all_forecasts
+
+
+def run_sentiment_analysis(reviews_df: pd.DataFrame):
+    """
+    Performs sentiment analysis on review comments using a multilingual BERT model.
+    """
+    logging.info("--- Starting Sentiment Analysis using Transformer Model ---")
+    
+    # Ensure there are comments to analyze
+    if 'review_comment_message' not in reviews_df.columns or reviews_df['review_comment_message'].isnull().all():
+        logging.warning("No review comments found to analyze.")
+        reviews_df['sentiment_score'] = None
+        reviews_df['sentiment_label'] = 'no_comment'
+        return reviews_df
+
+    # Define device
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    logging.info(f"Using device: {device}")
+
+    # Load tokenizer and model
+    model_name = "nlptown/bert-base-multilingual-uncased-sentiment"
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        model = AutoModelForSequenceClassification.from_pretrained(model_name).to(device)
+    except Exception as e:
+        logging.error(f"Failed to load model or tokenizer: {e}")
+        reviews_df['sentiment_score'] = None
+        reviews_df['sentiment_label'] = 'error'
+        return reviews_df
+
+    def analyze_comment(comment):
+        if pd.isna(comment) or not isinstance(comment, str) or comment.strip() == "":
+            return None, 'no_comment'
+        
+        try:
+            # Tokenize the text and move to the specified device
+            inputs = tokenizer(comment, return_tensors="pt", truncation=True, max_length=512).to(device)
+            
+            # Get model output
+            with torch.no_grad():
+                logits = model(**inputs).logits
+            
+            predicted_class_id = logits.argmax().item()
+            score = predicted_class_id + 1 # Score is 1-5
+            
+            if score <= 2:
+                label = 'negative'
+            elif score == 3:
+                label = 'neutral'
+            else: # 4 or 5
+                label = 'positive'
+                
+            return score, label
+        except Exception as e:
+            logging.error(f"Error analyzing comment: '{comment[:50]}...'. Error: {e}")
+            return None, 'error'
+
+    # Apply the analysis function
+    sentiments = reviews_df['review_comment_message'].apply(analyze_comment)
+    reviews_df[['sentiment_score', 'sentiment_label']] = pd.DataFrame(sentiments.tolist(), index=reviews_df.index)
+    
+    logging.info("Sentiment analysis completed.")
+    return reviews_df
