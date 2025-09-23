@@ -119,20 +119,30 @@ def get_sentiment_analysis_endpoint(page: int = 1, limit: int = 10):
 
         # Fetch paginated reviews that have a comment message
         query = """
+            WITH seller_info AS (
+                SELECT 
+                    order_id, 
+                    seller_id,
+                    ROW_NUMBER() OVER(PARTITION BY order_id ORDER BY seller_id) as rn
+                FROM order_items
+            )
             SELECT 
-                review_id,
-                order_id,
-                review_score,
-                review_comment_title,
-                review_comment_message,
-                review_creation_date
+                r.review_id,
+                r.order_id,
+                r.review_score,
+                r.review_comment_title,
+                r.review_comment_message,
+                r.review_creation_date,
+                s.seller_id
             FROM 
-                order_reviews
+                order_reviews r
+            LEFT JOIN
+                seller_info s ON r.order_id = s.order_id AND s.rn = 1
             WHERE 
-                review_comment_message IS NOT NULL 
-                AND TRIM(review_comment_message) <> ''
+                r.review_comment_message IS NOT NULL 
+                AND TRIM(r.review_comment_message) <> ''
             ORDER BY
-                review_creation_date DESC
+                r.review_creation_date DESC
             LIMIT %s OFFSET %s;
         """
         reviews_df = pd.read_sql_query(query, conn, params=(limit, offset))

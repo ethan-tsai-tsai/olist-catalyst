@@ -19,6 +19,8 @@ interface Review {
   review_comment_message: string;
   sentiment_label: 'positive' | 'neutral' | 'negative' | 'no_comment' | 'error';
   sentiment_score: number | null;
+  seller_id: string;
+  review_creation_date: string;
 }
 
 interface SentimentDistribution {

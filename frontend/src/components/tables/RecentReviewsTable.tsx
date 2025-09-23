@@ -6,6 +6,8 @@ interface Review {
   review_comment_message: string;
   sentiment_label: 'positive' | 'neutral' | 'negative' | 'no_comment' | 'error';
   sentiment_score: number | null;
+  seller_id: string;
+  review_creation_date: string;
 }
 
 interface RecentReviewsTableProps {
@@ -33,11 +35,17 @@ const RecentReviewsTable: FC<RecentReviewsTableProps> = ({ reviews, title }) => 
           <div className="p-2.5 xl:p-5 col-span-1">
             <h5 className="text-sm font-medium uppercase xsm:text-base">Score</h5>
           </div>
-          <div className="p-2.5 text-center col-span-8">
+          <div className="p-2.5 text-center col-span-5">
             <h5 className="text-sm font-medium uppercase xsm:text-base">Comment</h5>
           </div>
-          <div className="hidden p-2.5 text-center sm:block col-span-3">
+          <div className="hidden p-2.5 text-center sm:block col-span-2">
             <h5 className="text-sm font-medium uppercase xsm:text-base">Sentiment</h5>
+          </div>
+          <div className="hidden p-2.5 text-center sm:block col-span-2">
+            <h5 className="text-sm font-medium uppercase xsm:text-base">Seller</h5>
+          </div>
+          <div className="hidden p-2.5 text-center sm:block col-span-2">
+            <h5 className="text-sm font-medium uppercase xsm:text-base">Date</h5>
           </div>
         </div>
 
@@ -47,14 +55,20 @@ const RecentReviewsTable: FC<RecentReviewsTableProps> = ({ reviews, title }) => 
               <p className="text-black dark:text-white font-medium text-lg">{review.review_score} ★</p>
             </div>
 
-            <div className="flex items-center p-2.5 xl:p-5 col-span-8">
+            <div className="flex items-center p-2.5 xl:p-5 col-span-5">
               <p className="text-black dark:text-white text-sm">{review.review_comment_message}</p>
             </div>
 
-            <div className="hidden items-center justify-center p-2.5 text-center sm:flex col-span-3">
+            <div className="hidden items-center justify-center p-2.5 text-center sm:flex col-span-2">
                <span className={`px-3 py-1 text-xs font-medium rounded-full ${sentimentColorMap[review.sentiment_label] || 'bg-gray-400'}`}>
                  {review.sentiment_label.charAt(0).toUpperCase() + review.sentiment_label.slice(1)}
                </span>
+            </div>
+            <div className="hidden items-center justify-center p-2.5 text-center sm:flex col-span-2">
+              <p className="text-black dark:text-white text-sm">{review.seller_id}</p>
+            </div>
+            <div className="hidden items-center justify-center p-2.5 text-center sm:flex col-span-2">
+              <p className="text-black dark:text-white text-sm">{new Date(review.review_creation_date).toLocaleDateString()}</p>
             </div>
           </div>
         ))}
