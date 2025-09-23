@@ -3,12 +3,14 @@
 import { useEffect, useState } from 'react';
 import { Doughnut } from 'react-chartjs-2';
 import {
+  ChartData,
   Chart as ChartJS,
   ArcElement,
   Tooltip,
   Legend,
   Title,
 } from 'chart.js';
+import { getApiBaseUrl } from '@/lib/api';
 
 ChartJS.register(ArcElement, Tooltip, Legend, Title);
 
@@ -27,7 +29,7 @@ const generateColorPalette = (numColors: number) => {
 };
 
 const SellerCategoryDistributionChart = ({ sellerId }: { sellerId: string }) => {
-  const [chartData, setChartData] = useState<any>(null);
+  const [chartData, setChartData] = useState<ChartData<"doughnut"> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -36,7 +38,8 @@ const SellerCategoryDistributionChart = ({ sellerId }: { sellerId: string }) => 
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const res = await fetch(`/api/v2/sellers/${sellerId}/category-distribution`);
+        const apiUrl = `${getApiBaseUrl()}/api/v2/sellers/${sellerId}/category-distribution`;
+        const res = await fetch(apiUrl);
         const data: CategoryData[] = await res.json();
 
         if (data && data.length > 0) {

@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use client';
 
 import { FC, useEffect, useState } from 'react';

@@ -28,7 +28,6 @@ const ShippingTimeChart: React.FC = () => {
           throw new Error('Network response was not ok');
         }
 
-        const sellerData: BoxPlotData = await sellerResponse.json();
         const platformData: BoxPlotData = await platformResponse.json();
         
         // The backend mock for seller currently returns sales_trend, so we will mock the data here

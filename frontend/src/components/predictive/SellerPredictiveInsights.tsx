@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { TimeIcon as ClockIcon, ListIcon as ArrowPathIcon, DollarLineIcon as BanknotesIcon, UserIcon as UserMinusIcon } from '@/icons';
+import { getApiBaseUrl } from '@/lib/api';
 
 interface PredictiveData {
   recency: number;
@@ -37,7 +38,8 @@ const SellerPredictiveInsights = ({ sellerId }: { sellerId: string }) => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const res = await fetch(`/api/v2/sellers/${sellerId}/predictive-insights`);
+        const apiUrl = `${getApiBaseUrl()}/api/v2/sellers/${sellerId}/predictive-insights`;
+        const res = await fetch(apiUrl);
         if (!res.ok) {
             throw new Error('Failed to fetch predictive insights');
         }

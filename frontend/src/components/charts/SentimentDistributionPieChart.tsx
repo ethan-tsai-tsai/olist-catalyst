@@ -38,7 +38,7 @@ const SentimentDistributionPieChart: FC<SentimentDistributionPieChartProps> = ({
     legend: {
       show: true,
       position: 'bottom',
-      formatter: function(seriesName, opts) {
+      formatter: function(seriesName) {
         return seriesName;
       }
     },

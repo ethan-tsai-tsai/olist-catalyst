@@ -1,8 +1,10 @@
 'use client';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowDownIcon, ArrowUpIcon } from '@/icons';
 import Pagination from '../common/Pagination';
+
+import { getApiBaseUrl } from '@/lib/api';
 
 // Define a generic type for our table data
 type SellerData = {
@@ -35,7 +37,8 @@ const SellersTable: React.FC = () => {
       const sortOrder = sortConfig?.direction === 'ascending' ? 'ASC' : 'DESC';
       
       try {
-        const response = await fetch(`/api/v2/sellers?sort_by=${sortKey}&order=${sortOrder}&page=${currentPage}&limit=${PAGE_SIZE}`);
+        const apiUrl = `${getApiBaseUrl()}/api/v2/sellers?sort_by=${sortKey}&order=${sortOrder}&page=${currentPage}&limit=${PAGE_SIZE}`;
+        const response = await fetch(apiUrl);
         if (!response.ok) {
           throw new Error('Network response was not ok');
         }

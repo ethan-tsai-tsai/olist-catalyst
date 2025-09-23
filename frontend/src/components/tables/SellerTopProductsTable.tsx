@@ -1,13 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableRow,
-} from "../ui/table";
+import { getApiBaseUrl } from '@/lib/api';
 
 interface ProductData {
   product_id: string;
@@ -25,7 +19,8 @@ const SellerTopProductsTable = ({ sellerId }: { sellerId: string }) => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const res = await fetch(`/api/v2/sellers/${sellerId}/top-products?limit=5`);
+        const apiUrl = `${getApiBaseUrl()}/api/v2/sellers/${sellerId}/top-products?limit=5`;
+        const res = await fetch(apiUrl);
         const result = await res.json();
         setData(result || []);
       } catch (error) {

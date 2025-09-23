@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { getApiBaseUrl } from '@/lib/api';
 import Link from 'next/link';
 import {
   Table,
@@ -25,7 +26,8 @@ export default function TopProductsTable() {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const res = await fetch('/api/v2/products?sort_by=sales_count&order=DESC&limit=5');
+        const apiUrl = `${getApiBaseUrl()}/api/v2/products?sort_by=sales_count&order=DESC&limit=5`;
+        const res = await fetch(apiUrl);
         const result = await res.json();
         if (result && result.data) {
           setData(result.data);

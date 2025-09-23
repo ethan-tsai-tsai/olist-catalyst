@@ -44,12 +44,13 @@ const SentimentDistributionChart: React.FC = () => {
     },
     colors: ["#3C50E0", "#6577F3", "#80CAEE"],
     labels: chartData.labels,
+    tooltip: {
+      enabled: true,
+    },
     legend: {
       show: true,
-      position: 'bottom',
-      formatter: function(seriesName, opts) {
-        return seriesName;
-      }
+      position: "bottom",
+      horizontalAlign: "center",
     },
     plotOptions: {
       pie: {

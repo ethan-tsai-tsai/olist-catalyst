@@ -2,15 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { Bar } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-} from 'chart.js';
+import { ChartData, Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
+import { getApiBaseUrl } from '@/lib/api';
 
 ChartJS.register(
   CategoryScale,
@@ -27,7 +20,7 @@ interface ReviewData {
 }
 
 const SellerReviewDistributionChart = ({ sellerId }: { sellerId: string }) => {
-  const [chartData, setChartData] = useState<any>(null);
+  const [chartData, setChartData] = useState<ChartData<"bar"> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -36,7 +29,8 @@ const SellerReviewDistributionChart = ({ sellerId }: { sellerId: string }) => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const res = await fetch(`/api/v2/sellers/${sellerId}/review-distribution`);
+        const apiUrl = `${getApiBaseUrl()}/api/v2/sellers/${sellerId}/review-distribution`;
+        const res = await fetch(apiUrl);
         const data: ReviewData[] = await res.json();
 
         if (data && data.length > 0) {

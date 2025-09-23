@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { getApiBaseUrl } from '@/lib/api';
 
 interface OrderData {
   order_id: string;
@@ -39,7 +40,8 @@ const SellerRecentOrdersTable = ({ sellerId }: { sellerId: string }) => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const res = await fetch(`/api/v2/sellers/${sellerId}/recent-orders?limit=5`);
+        const apiUrl = `${getApiBaseUrl()}/api/v2/sellers/${sellerId}/recent-orders?limit=5`;
+        const res = await fetch(apiUrl);
         const result = await res.json();
         setData(result || []);
       } catch (error) {

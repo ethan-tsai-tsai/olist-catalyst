@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Metadata } from "next";
 import React from "react";
 import { FolderIcon as MapPinIcon, CalenderIcon as CalendarDaysIcon, ShootingStarIcon as StarIcon, DollarLineIcon as CurrencyDollarIcon, BoxIcon as ShoppingCartIcon, BoxCubeIcon as CubeIcon, CheckCircleIcon } from '@/icons';
 import SellerSalesTrendChart from '@/components/charts/SellerSalesTrendChart';
@@ -10,6 +9,7 @@ import SellerTopProductsTable from '@/components/tables/SellerTopProductsTable';
 import SellerReviewDistributionChart from '@/components/charts/SellerReviewDistributionChart';
 import SellerRecentOrdersTable from '@/components/tables/SellerRecentOrdersTable';
 import SellerPredictiveInsights from '@/components/predictive/SellerPredictiveInsights';
+import { getApiBaseUrl } from '@/lib/api';
 
 // This metadata is for static generation and might not be used in client-rendered pages directly,
 // but it's good practice to keep it.
@@ -57,7 +57,8 @@ const SellerDetailsClientPage = ({ sellerId }: { sellerId: string }) => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const res = await fetch(`/api/v2/sellers/${sellerId}`);
+        const apiUrl = `${getApiBaseUrl()}/api/v2/sellers/${sellerId}`;
+        const res = await fetch(apiUrl);
         if (!res.ok) {
           if (res.status === 404) {
             throw new Error('Seller not found');

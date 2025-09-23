@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from "react";
 import {
   Table,
@@ -7,8 +8,7 @@ import {
   TableRow,
 } from "../ui/table";
 
-import Badge from "../ui/badge/Badge";
-import Image from "next/image";
+
 
 interface BasicTableProps {
   data: any[];

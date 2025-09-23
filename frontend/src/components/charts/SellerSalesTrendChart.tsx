@@ -2,17 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { Line } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
-} from 'chart.js';
+import { ChartData, Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
+import { getApiBaseUrl } from '@/lib/api';
 
 ChartJS.register(
   CategoryScale,
@@ -31,7 +22,7 @@ interface SalesTrendData {
 }
 
 const SellerSalesTrendChart = ({ sellerId }: { sellerId: string }) => {
-  const [chartData, setChartData] = useState<any>(null);
+  const [chartData, setChartData] = useState<ChartData<"line"> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -40,7 +31,8 @@ const SellerSalesTrendChart = ({ sellerId }: { sellerId: string }) => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const res = await fetch(`/api/v2/sellers/${sellerId}/sales-trend`);
+        const apiUrl = `${getApiBaseUrl()}/api/v2/sellers/${sellerId}/sales-trend`;
+        const res = await fetch(apiUrl);
         const data: SalesTrendData[] = await res.json();
 
         if (data && data.length > 0) {
