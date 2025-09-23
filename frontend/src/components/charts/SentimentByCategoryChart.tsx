@@ -1,73 +1,66 @@
 'use client';
+import { FC } from 'react';
+import dynamic from 'next/dynamic';
 import { ApexOptions } from 'apexcharts';
-import React, { useState, useEffect } from 'react';
-import ReactApexChart from 'react-apexcharts';
 
-interface ChartData {
-  series: { name: string; data: number[] }[];
-  options: {
-      xaxis: {
-          categories: string[];
-      }
-  }
+const ReactApexChart = dynamic(() => import('react-apexcharts'), { ssr: false });
+
+interface SentimentByCategoryChartProps {
+  series: {
+    name: string;
+    data: number[];
+  }[];
+  categories: string[];
 }
 
-const SentimentByCategoryChart: React.FC = () => {
-  const [chartData, setChartData] = useState<ChartData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await fetch('http://localhost:8000/api/overview/sentiment_by_category');
-        if (!response.ok) {
-          throw new Error('Network response was not ok');
-        }
-        const data: ChartData = await response.json();
-        setChartData(data);
-      } catch (error) {
-        setError(error instanceof Error ? error.message : 'An unknown error occurred');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
-
+const SentimentByCategoryChart: FC<SentimentByCategoryChartProps> = ({ series, categories }) => {
   const options: ApexOptions = {
     chart: {
       type: 'bar',
-      height: 350,
+      height: 450,
       stacked: true,
       toolbar: {
-        show: false,
+        show: true,
       },
     },
+    colors: ['#22c55e', '#f97316', '#ef4444'],
     plotOptions: {
       bar: {
-        horizontal: false,
-        columnWidth: '55%',
+        horizontal: true,
+        borderRadius: 4,
       },
     },
-    dataLabels: {
-      enabled: false,
-    },
     stroke: {
-      show: true,
-      width: 2,
-      colors: ['transparent'],
+      width: 1,
+      colors: ['#fff'],
+    },
+    title: {
+      text: 'Sentiment by Product Category',
+      align: 'left',
+      style: {
+        fontSize: '18px',
+        fontWeight: 'bold',
+        color: '#111827',
+      },
     },
     xaxis: {
-      categories: chartData?.options.xaxis.categories || [],
-      title: {
-        text: 'Product Category'
-      }
+      categories: categories,
+      labels: {
+        formatter: function (val) {
+          return val + " reviews";
+        },
+      },
     },
     yaxis: {
       title: {
-        text: 'Number of Reviews'
+        text: undefined,
+      },
+    },
+    tooltip: {
+      y: {
+        formatter: function (val) {
+          return val + " reviews";
+        },
       },
     },
     fill: {
@@ -76,16 +69,13 @@ const SentimentByCategoryChart: React.FC = () => {
     legend: {
       position: 'top',
       horizontalAlign: 'left',
+      offsetX: 40,
     },
-    colors: ['#3C50E0', '#E53E3E']
   };
 
-  if (loading) return <div>Loading Chart...</div>;
-  if (error) return <div>Error: {error}</div>;
-
   return (
-    <div id="sentiment-by-category-chart">
-      <ReactApexChart options={options} series={chartData?.series || []} type="bar" height={350} />
+    <div className="bg-white p-4 md:p-6 rounded-lg shadow-lg">
+      <ReactApexChart options={options} series={series} type="bar" height={450} />
     </div>
   );
 };

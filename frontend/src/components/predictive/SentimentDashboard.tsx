@@ -4,15 +4,36 @@ import { FC, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import RecentReviewsTable from '@/components/tables/RecentReviewsTable';
 import Pagination from '@/components/tables/Pagination';
+import SimpleKpiCard from '@/components/common/SimpleKpiCard';
+import { PieChartIcon } from '@/icons';
 
-// Dynamically import the chart component with SSR turned off
-const SentimentDistributionPieChart = dynamic(() => import('@/components/charts/SentimentDistributionPieChart'), {
-  ssr: false,
-});
+// --- Dynamically import chart components ---
+const SentimentTrendChart = dynamic(() => import('@/components/charts/SentimentTrendChart'), { ssr: false });
+const SentimentDonutChart = dynamic(() => import('@/components/charts/SentimentDonutChart'), { ssr: false });
+const TopNegativeCategoriesChart = dynamic(() => import('@/components/charts/TopNegativeCategoriesChart'), { ssr: false });
 
 const PAGE_SIZE = 10;
 
-// Updated types to match the new API response
+// --- TypeScript Interfaces for the new data structure ---
+interface SentimentTrendData {
+  months: string[];
+  positive: number[];
+  neutral: number[];
+  negative: number[];
+}
+
+interface TopNegativeCategoriesData {
+    categories: string[];
+    counts: number[];
+}
+
+interface SentimentInsightsData {
+  average_score: number;
+  distribution: { [key: string]: number };
+  top_negative_categories: TopNegativeCategoriesData;
+  sentiment_trend: SentimentTrendData;
+}
+
 interface Review {
   review_id: string;
   review_score: number;
@@ -23,37 +44,36 @@ interface Review {
   review_creation_date: string;
 }
 
-interface SentimentDistribution {
-  positive: number;
-  neutral: number;
-  negative: number;
-  [key: string]: number;
-}
-
-interface SentimentData {
-  distribution: SentimentDistribution;
-  reviews: {
+interface PaginatedReviews {
     data: Review[];
     totalCount: number;
-  };
 }
 
 const SentimentDashboard: FC = () => {
-  const [data, setData] = useState<SentimentData | null>(null);
+  const [insightsData, setInsightsData] = useState<SentimentInsightsData | null>(null);
+  const [reviewsData, setReviewsData] = useState<PaginatedReviews | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchData = async (page: number) => {
+    const fetchAllData = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/api/sentiment-analysis?page=${page}&limit=${PAGE_SIZE}`);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+        const insightsResponse = await fetch('/api/sentiment-insights');
+        if (!insightsResponse.ok) {
+          throw new Error(`HTTP error! status: ${insightsResponse.status}`);
         }
-        const result: SentimentData = await response.json();
-        setData(result);
+        const insightsResult: SentimentInsightsData = await insightsResponse.json();
+        setInsightsData(insightsResult);
+
+        const reviewsResponse = await fetch(`/api/sentiment-analysis?page=1&limit=${PAGE_SIZE}`);
+        if (!reviewsResponse.ok) {
+            throw new Error(`HTTP error! status: ${reviewsResponse.status}`);
+        }
+        const reviewsResult = await reviewsResponse.json();
+        setReviewsData(reviewsResult.reviews);
+
       } catch (e: any) {
         setError(e.message);
       } finally {
@@ -61,13 +81,32 @@ const SentimentDashboard: FC = () => {
       }
     };
 
-    fetchData(currentPage);
-  }, [currentPage]); // Re-run effect when currentPage changes
+    fetchAllData();
+  }, []);
+
+  useEffect(() => {
+    if (currentPage === 1) return; // Avoid re-fetching initial data
+
+    const fetchReviewsPage = async (page: number) => {
+        try {
+            const reviewsResponse = await fetch(`/api/sentiment-analysis?page=${page}&limit=${PAGE_SIZE}`);
+            if (!reviewsResponse.ok) {
+                throw new Error(`HTTP error! status: ${reviewsResponse.status}`);
+            }
+            const reviewsResult = await reviewsResponse.json();
+            setReviewsData(reviewsResult.reviews);
+        } catch (e: any) {
+            setError(e.message);
+        }
+    };
+
+    fetchReviewsPage(currentPage);
+  }, [currentPage]);
 
   if (loading) {
     return (
-        <div className="flex justify-center items-center h-64">
-            <p className="text-lg font-semibold text-gray-600 dark:text-gray-300">Loading Sentiment Analysis...</p>
+        <div className="flex justify-center items-center h-96">
+            <p className="text-lg font-semibold text-gray-600 dark:text-gray-300">Loading Sentiment Insights...</p>
         </div>
     );
   }
@@ -81,26 +120,64 @@ const SentimentDashboard: FC = () => {
     );
   }
 
-  if (!data) {
-    return <p>No data available.</p>;
+  if (!insightsData || !reviewsData) {
+    return <div className="text-center p-10">No data available.</div>;
   }
 
-  const totalPages = Math.ceil(data.reviews.totalCount / PAGE_SIZE);
+  const totalPages = Math.ceil(reviewsData.totalCount / PAGE_SIZE);
 
   return (
     <div className="flex flex-col gap-10">
-        <div className="grid grid-cols-12 gap-4 md:gap-6 2xl:gap-7.5">
-            <SentimentDistributionPieChart distribution={data.distribution} />
-        </div>
-        <div>
-          <RecentReviewsTable reviews={data.reviews.data} title="Recent Customer Reviews" />
-          <div className="mt-4 flex justify-center">
-            <Pagination 
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            <SimpleKpiCard 
+                title="Overall Average Score"
+                value={`${insightsData.average_score.toFixed(2)} / 5.0`}
+                icon={<PieChartIcon className="w-6 h-6" />}
             />
-          </div>
+            <div className="sm:col-span-2">
+                <SentimentDonutChart 
+                    labels={Object.keys(insightsData.distribution)}
+                    series={Object.values(insightsData.distribution)}
+                />
+            </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+            <TopNegativeCategoriesChart 
+                categories={insightsData.top_negative_categories.categories}
+                series={[{ name: 'Negative Reviews', data: insightsData.top_negative_categories.counts }]}
+            />
+            {insightsData.sentiment_trend && insightsData.sentiment_trend.months.length > 0 && ( 
+                <SentimentTrendChart 
+                    categories={insightsData.sentiment_trend.months} 
+                    series={[
+                        { name: 'Positive', data: insightsData.sentiment_trend.positive },
+                        { name: 'Neutral', data: insightsData.sentiment_trend.neutral },
+                        { name: 'Negative', data: insightsData.sentiment_trend.negative },
+                    ]}
+                />
+            )}
+        </div>
+
+        <div>
+          {reviewsData.data && reviewsData.data.length > 0 ? (
+            <>
+              <RecentReviewsTable reviews={reviewsData.data} title="Recent Customer Reviews" />
+              <div className="mt-4 flex justify-center">
+                {totalPages > 1 && (
+                  <Pagination 
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                  />
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="text-center p-10 bg-white dark:bg-boxdark rounded-lg shadow-lg">
+              <p className="text-gray-500">No recent reviews to display.</p>
+            </div>
+          )}
         </div>
     </div>
   );
