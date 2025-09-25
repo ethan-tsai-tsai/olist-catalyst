@@ -29,76 +29,50 @@ The user interface and component library for the frontend were built upon the ex
 
 For more information, visit: [https://tailadmin.com](https://tailadmin.com)
 
-## Getting Started
+## Getting Started with Docker (Recommended)
 
-Follow these instructions to set up and run the project on your local machine.
+This project is fully containerized using Docker, which is the recommended way to get started. This method simplifies the setup process to just a few commands.
 
 ### Prerequisites
 
-Ensure you have the following installed:
-- Node.js and npm
-- Python 3.8+
-- `uv` (Python package installer and virtual environment manager)
+1.  **Docker Desktop**: Install it from the [official Docker website](https://www.docker.com/products/docker-desktop/).
+2.  **Kaggle API Token**: The application automatically downloads the required dataset from Kaggle. You need an API token for this.
+    - Go to your Kaggle account settings (`https://www.kaggle.com/account`).
+    - Click on `Create New API Token`. This will download a `kaggle.json` file.
+    - Place this file in your home directory under a `.kaggle` folder (e.g., `~/.kaggle/kaggle.json` on macOS/Linux or `C:\Users\<Your-Username>\.kaggle\kaggle.json` on Windows).
+
+### 1. Launch the Application
+
+Clone the repository, navigate into the project directory, and run the following command:
 
 ```bash
-# Install uv if you haven't already
-pip install uv
+docker-compose up --build
 ```
 
-### Backend Setup
+This command will:
+- Build the Docker images for the frontend and backend.
+- Start containers for the frontend, backend, and a PostgreSQL database.
+- The frontend will be available at `http://localhost:3000`.
+- The backend API will be available at `http://localhost:8000`.
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/your-username/olist-catalyst.git
-    cd olist-catalyst
-    ```
+### 2. Populate the Database
 
-2.  **Create and activate the virtual environment:**
-    ```bash
-    uv venv
-    source .venv/bin/activate
-    ```
+After the containers are up and running, open a **new terminal window** and run the following command to download the dataset and populate the database:
 
-3.  **Install Python dependencies:**
-    ```bash
-    uv pip install -r requirements.txt 
-    # Or if pyproject.toml is fully populated:
-    # uv sync
-    ```
+```bash
+docker-compose exec backend uv run python backend/populate_db.py
+```
 
-4.  **Set up the database:**
-    *Ensure PostgreSQL is running and a database has been created.*
-    *Modify connection details in `backend/platform_api.py` if necessary.*
+This script will:
+- Automatically download the Olist dataset from Kaggle into the `data` directory.
+- Create the necessary table schema.
+- Fill the tables with the data from the CSV files.
 
-5.  **Populate the database:**
-    *(This step requires the Olist dataset CSV files to be placed in the `data/` directory)*
-    ```bash
-    uv run python backend/populate_db.py
-    ```
+Once the script finishes, your application will be fully functional with all the necessary data.
 
-6.  **Run the backend server:**
-    ```bash
-    uv run uvicorn backend.main:app --reload
-    ```
-    The API will be available at `http://127.0.0.1:8000`.
+--- 
 
-### Frontend Setup
-
-1.  **Navigate to the frontend directory:**
-    ```bash
-    cd frontend
-    ```
-
-2.  **Install npm dependencies:**
-    ```bash
-    npm install
-    ```
-
-3.  **Run the development server:**
-    ```bash
-    npm run dev
-    ```
-    The application will be available at `http://localhost:3000`.
+*For manual setup without Docker, please refer to older commits of this README.*
 
 ## License
 

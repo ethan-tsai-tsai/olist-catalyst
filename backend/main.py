@@ -56,8 +56,14 @@ app.add_middleware(
 )
 
 # --- Database Engine Creation (Singleton) ---
-DB_URL = f"postgresql+psycopg2://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}@{os.getenv('POSTGRES_HOST')}:5432/{os.getenv('POSTGRES_DATABASE')}"
+DB_URL = os.getenv("DATABASE_URL")
+# Ensure the URL uses the sqlalchemy dialect for psycopg2
+if DB_URL and DB_URL.startswith("postgresql://"):
+    DB_URL = DB_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
+
 try:
+    if not DB_URL:
+        raise ValueError("DATABASE_URL environment variable is not set.")
     engine = create_engine(DB_URL, pool_size=10, max_overflow=20)
     logging.info("Database engine created successfully.")
 except Exception as e:
