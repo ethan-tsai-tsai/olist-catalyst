@@ -3,6 +3,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import logging
+import uvicorn
 import pandas as pd
 from pathlib import Path
 from sqlalchemy import create_engine, text
@@ -591,3 +592,6 @@ def get_kpis_endpoint():
         raise HTTPException(status_code=500, detail="Internal server error")
 
 # ... (and so on for all other endpoints)
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000)) 
+    uvicorn.run(app, host="0.0.0.0", port=port)
